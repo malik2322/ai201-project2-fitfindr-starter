@@ -69,8 +69,33 @@ def search_listings(
 
     Before writing code, fill in the Tool 1 section of planning.md.
     """
-    # Replace this with your implementation
-    return []
+    listings = load_listings()
+    keywords = description.lower().split()
+
+    results = []
+    for item in listings:
+        if max_price is not None and item["price"] > max_price:
+            continue
+
+        if size is not None:
+            if size.upper() not in item["size"].upper():
+                continue
+
+        searchable = " ".join([
+            item["title"],
+            item["description"],
+            item["category"],
+            " ".join(item.get("style_tags", [])),
+            " ".join(item.get("colors", [])),
+            item.get("brand", "") or "",
+        ]).lower()
+
+        score = sum(1 for kw in keywords if kw in searchable)
+        if score > 0:
+            results.append((score, item))
+
+    results.sort(key=lambda x: x[0], reverse=True)
+    return [item for _, item in results]
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
@@ -135,3 +160,21 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
     """
     # Replace this with your implementation
     return ""
+
+
+# ── Quick manual test ────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    results = search_listings("vintage tee", None, 50)
+    print(f"search_listings('vintage tee', None, 50) -> {len(results)} results")
+    for r in results:
+        print(f"  ${r['price']} | {r['size']} | {r['title']}")
+
+    print()
+    results2 = search_listings("leather jacket", "M", None)
+    print(f"search_listings('leather jacket', 'M', None) -> {len(results2)} results")
+    for r in results2:
+        print(f"  ${r['price']} | {r['size']} | {r['title']}")
+
+    print()
+    results3 = search_listings("xyznonexistent", None, None)
+    print(f"search_listings('xyznonexistent', None, None) -> {len(results3)} results")
