@@ -12,6 +12,31 @@ Then open the localhost URL shown in your terminal (usually http://localhost:786
 but check your terminal — the port may differ).
 """
 
+import asyncio
+
+# Python 3.14 + Gradio 5.x: Gradio's safe_get_lock() can return None when
+# asyncio.Lock() fails outside a running loop, causing 'NoneType' errors in
+# the queue. Ensure a loop exists, then monkey-patch safe_get_lock to always
+# return a real Lock.
+try:
+    asyncio.get_event_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+import gradio.utils
+
+_original_safe_get_lock = gradio.utils.safe_get_lock
+
+def _patched_safe_get_lock():
+    lock = _original_safe_get_lock()
+    if lock is None:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        lock = asyncio.Lock()
+    return lock
+
+gradio.utils.safe_get_lock = _patched_safe_get_lock
+
 import gradio as gr
 
 from agent import run_agent
@@ -43,8 +68,42 @@ def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str]:
            string and return it along with session["outfit_suggestion"] and
            session["fit_card"].
     """
-    # TODO: implement this function
-    return "Agent not yet implemented.", "", ""
+    if not user_query or not user_query.strip():
+        return "Please enter a search query.", "", ""
+
+    if wardrobe_choice == "Example wardrobe":
+        wardrobe = get_example_wardrobe()
+    else:
+        wardrobe = get_empty_wardrobe()
+
+    if not isinstance(wardrobe, dict) or "items" not in wardrobe:
+        wardrobe = {"items": []}
+
+    session = run_agent(user_query, wardrobe)
+
+    if session.get("error"):
+        return session["error"], "", ""
+
+    item = session.get("selected_item", {})
+    if item:
+        listing_text = (
+            f"{item.get('title', 'Unknown')}\n"
+            f"Price: ${item.get('price', '?')}\n"
+            f"Size: {item.get('size', 'N/A')}\n"
+            f"Condition: {item.get('condition', 'N/A')}\n"
+            f"Platform: {item.get('platform', 'N/A')}\n"
+            f"Brand: {item.get('brand') or 'Unbranded'}\n"
+            f"Colors: {', '.join(item.get('colors', []))}\n"
+            f"Style: {', '.join(item.get('style_tags', []))}\n\n"
+            f"{item.get('description', '')}"
+        )
+    else:
+        listing_text = "No item selected."
+
+    outfit_text = session.get("outfit_suggestion", "") or ""
+    fit_card_text = session.get("fit_card", "") or ""
+
+    return listing_text, outfit_text, fit_card_text
 
 
 # ── interface ─────────────────────────────────────────────────────────────────

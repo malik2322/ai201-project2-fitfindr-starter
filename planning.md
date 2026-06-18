@@ -185,29 +185,76 @@ For each tool, describe the specific failure mode you're handling and what the a
      You'll share this diagram with an AI tool when asking it to implement
      the planning loop and each individual tool. -->
 
-User query
+User Query
 │
 ▼
-Planning Loop ───────────────────────────────────────────┐
-│ │
-├─► search_listings(description, size, max_price) │
-│ │ results=[] │
-│ ├──► [ERROR] "No listings found..." → return │
-│ │ │
-│ │ results=[item, ...] │
-│ ▼ │
-│ Session: selected_item = results[0] │
-│ │ │
-├─► suggest_outfit(selected_item, wardrobe) │
-│ │ │
-│ Session: outfit_suggestion = "..." │
-│ │ │
-└─► create_fit_card(outfit_suggestion, selected_item)│
-│ │
-Session: fit_card = "..." │
-│ └─ error path returns here
+┌──────────────────────────────┐
+│ Planning Loop │
+│ (parse + decide next step) │
+└──────────────────────────────┘
+│
 ▼
-Return session
+┌──────────────────────────────┐
+│ search_listings() │
+│ input: description, size, │
+│ max_price │
+└──────────────────────────────┘
+│
+▼
+┌──────────────────────────────────────────────┐
+│ results == [] ? │
+└──────────────────────────────────────────────┘
+│ YES │ NO
+▼ ▼
+┌──────────────────────┐ ┌────────────────────────────┐
+│ Return error message │ │ Select top item │
+│ "No listings found" │ │ session["selected_item"] │
+└──────────────────────┘ └────────────────────────────┘
+│
+▼
+┌──────────────────────────────┐
+│ suggest_outfit() │
+│ input: selected_item, │
+│ wardrobe │
+└──────────────────────────────┘
+│
+▼
+┌──────────────────────────────┐
+│ wardrobe empty? │
+└──────────────────────────────┘
+│ YES │ NO
+▼ ▼
+┌──────────────────────┐ ┌────────────────────────┐
+│ fallback styling │ │ LLM outfit suggestion │
+│ advice string │ └────────────────────────┘
+└──────────────────────┘ │
+│ │
+└──────────┬───────────┘
+▼
+session["outfit_suggestion"]
+│
+▼
+┌──────────────────────────────┐
+│ create_fit_card() │
+│ input: outfit + item │
+└──────────────────────────────┘
+│
+▼
+┌──────────────────────────────┐
+│ outfit empty? │
+└──────────────────────────────┘
+│ YES │ NO
+▼ ▼
+┌──────────────────────┐ ┌────────────────────────┐
+│ return error string │ │ LLM generates caption │
+└──────────────────────┘ └────────────────────────┘
+│ │
+└──────────┬───────────┘
+▼
+session["fit_card"]
+│
+▼
+Return Session
 
 ---
 
