@@ -204,8 +204,32 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
 
     Before writing code, fill in the Tool 3 section of planning.md.
     """
-    # Replace this with your implementation
-    return ""
+    if not outfit or not outfit.strip():
+        return "Error: missing outfit data"
+
+    client = _get_groq_client()
+    item_name = new_item.get("title", new_item.get("name", "this thrifted find"))
+    item_price = new_item.get("price", "?")
+    item_platform = new_item.get("platform", "a thrift app")
+
+    prompt = (
+        f"Write a 2-4 sentence Instagram/TikTok caption for this thrifted outfit.\n\n"
+        f"Thrifted item: {item_name} (${item_price} on {item_platform})\n"
+        f"Outfit styling: {outfit}\n\n"
+        "Rules:\n"
+        "- Casual, authentic tone (like a real OOTD post)\n"
+        "- Mention the item name, price, and platform once each, naturally\n"
+        "- Capture the outfit vibe in specific terms\n"
+        "- 2-4 sentences max, no hashtags unless they feel natural\n"
+        "- Do NOT include any preamble or explanation, just the caption"
+    )
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.9,
+    )
+    return response.choices[0].message.content
 
 
 # ── Quick manual test ────────────────────────────────────────────────────────
@@ -229,3 +253,10 @@ if __name__ == "__main__":
     print(suggest_outfit({"name": "tee", "price": 20}, {"items": ["jeans", "shoes"]}))
     print()
     print(suggest_outfit({"name": "tee", "price": 20}, {"items": []}))
+
+    print("\n--- create_fit_card tests ---")
+    print(create_fit_card("casual outfit with jeans", {"name": "tee", "price": 20}))
+    print()
+    print(create_fit_card("", {"name": "tee", "price": 20}))
+    print()
+    print(create_fit_card(None, {}))
