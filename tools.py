@@ -125,8 +125,54 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
 
     Before writing code, fill in the Tool 2 section of planning.md.
     """
-    # Replace this with your implementation
-    return ""
+    client = _get_groq_client()
+    item_name = new_item.get("title", new_item.get("name", "unknown item"))
+    item_desc = new_item.get("description", "")
+    item_category = new_item.get("category", "")
+    item_colors = ", ".join(new_item.get("colors", []))
+    item_style = ", ".join(new_item.get("style_tags", []))
+
+    item_summary = (
+        f"Item: {item_name}\n"
+        f"Category: {item_category}\n"
+        f"Colors: {item_colors}\n"
+        f"Style: {item_style}\n"
+        f"Description: {item_desc}"
+    )
+
+    items = wardrobe.get("items", []) if isinstance(wardrobe, dict) else []
+
+    if not items:
+        prompt = (
+            f"I just thrifted this item:\n{item_summary}\n\n"
+            "I don't have a wardrobe on file yet. Give me 1-2 general outfit ideas "
+            "describing what kinds of pieces would pair well with this item and what "
+            "vibe it suits. Keep it concise and practical."
+        )
+    else:
+        wardrobe_lines = []
+        for w in items:
+            if isinstance(w, dict):
+                wardrobe_lines.append(
+                    f"- {w.get('name', 'unnamed')} ({w.get('category', '')}, "
+                    f"{', '.join(w.get('colors', []))})"
+                )
+            else:
+                wardrobe_lines.append(f"- {w}")
+        wardrobe_text = "\n".join(wardrobe_lines)
+
+        prompt = (
+            f"I just thrifted this item:\n{item_summary}\n\n"
+            f"Here is my current wardrobe:\n{wardrobe_text}\n\n"
+            "Suggest 1-2 complete outfit combinations using the new item and "
+            "specific pieces from my wardrobe. Be concise and specific."
+        )
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return response.choices[0].message.content
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
@@ -178,3 +224,8 @@ if __name__ == "__main__":
     print()
     results3 = search_listings("xyznonexistent", None, None)
     print(f"search_listings('xyznonexistent', None, None) -> {len(results3)} results")
+
+    print("\n--- suggest_outfit tests ---")
+    print(suggest_outfit({"name": "tee", "price": 20}, {"items": ["jeans", "shoes"]}))
+    print()
+    print(suggest_outfit({"name": "tee", "price": 20}, {"items": []}))
